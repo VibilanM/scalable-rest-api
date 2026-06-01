@@ -17,9 +17,12 @@ mongoose.connect(process.env.MONGO_URI)
 
 const authRoutes = require("./routes/auth.js");
 const noteRoutes = require("./routes/notes");
+const setupSwagger = require("./swagger");
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/notes', noteRoutes);
+
+setupSwagger(app);
 
 app.get('/', (req, res) => {
     res.send("Server running.");

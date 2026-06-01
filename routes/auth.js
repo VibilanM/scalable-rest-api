@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User.js");
 const jwt = require("jsonwebtoken");
+const auth = require("../middleware/auth");
+const role = require("../middleware/role");
 
 const router = express.Router();
 
@@ -57,41 +59,65 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const user = await User.findOne({ email })
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "Email and password are required."
+            });
+        }
 
-    if (!user) {
-        return res.status(400).json({
-            message: "Invalid credentials"
-        })
-    }
+        const user = await User.findOne({ email });
 
-    const isMatch = await bcrypt.compare(
-        password,
-        user.password
-    );
+        if (!user) {
+            return res.status(401).json({
+                message: "Invalid credentials"
+            });
+        }
 
-    if (!isMatch) {
-        return res.status(400).json({
-            message: "Invalid credentials"
+        const isMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        if (!isMatch) {
+            return res.status(401).json({
+                message: "Invalid credentials"
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                id: user._id,
+                role: user.role
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "1d"
+            }
+        );
+
+        res.status(200).json({
+            message: "Login successful.",
+            token
+        });
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({
+            message: "An internal server error occurred while logging in."
         });
     }
+});
 
-    const token = jwt.sign(
-        {
-            id: user._id,
-            role: user.role
-        },
-        process.env.JWT_SECRET,
-        {
-            expiresIn: "1d"
-        }
-    );
 
-    res.status(200).json({
-        message: "Login successful.",
-        token
+router.get("/profile", auth, (req, res) => {
+    res.json(req.user);
+});
+
+router.get("/admin", auth, role("admin"), (req, res) => {
+    res.json({
+        message: "Welcome admin"
     });
 });
 
